@@ -1,0 +1,2 @@
+correr en el directorio raiz del proyecto bitlog:
+npm run dev
