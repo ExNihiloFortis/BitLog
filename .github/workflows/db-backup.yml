@@ -9,39 +9,53 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Install tools (pg_dump + dig + curl)
+      - name: Install tools (pg_dump + dig + getent + curl)
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client dnsutils jq
+          sudo apt-get install -y postgresql-client dnsutils libc-bin jq
 
-      - name: Resolve IPv4 and create dump (force IPv4 + SSL)
+      - name: Resolve host (sanitize + IPv4 fallback) and dump
         env:
-          PGHOST: ${{ secrets.PGHOST }}         # p.ej. db.xxxxx.supabase.co
-          PGPORT: ${{ secrets.PGPORT }}         # 5432 (NO el pool 6543)
-          PGDATABASE: ${{ secrets.PGDATABASE }} # normalmente "postgres"
-          PGUSER: ${{ secrets.PGUSER }}         # "postgres"
-          PGPASSWORD: ${{ secrets.PGPASSWORD }} # el password que reseteaste
+          PGHOST: ${{ secrets.PGHOST }}         # ej: db.gayefhypecduuosazanz.supabase.co
+          PGPORT: ${{ secrets.PGPORT }}         # 5432
+          PGDATABASE: ${{ secrets.PGDATABASE }} # postgres
+          PGUSER: ${{ secrets.PGUSER }}         # postgres
+          PGPASSWORD: ${{ secrets.PGPASSWORD }} # reset en Supabase
         run: |
           set -e
 
-          # 1) Obtener la IPv4 del host (evita IPv6)
-          IPV4=$(dig +short A "$PGHOST" | head -n1)
-          if [ -z "$IPV4" ]; then
-            echo "No pude resolver IPv4 para $PGHOST"
-            exit 1
+          # 0) Sanitizar host: quitar http(s), paths y puertos si los hubiera
+          HOST_CLEAN="$(printf '%s' "$PGHOST" | sed -E 's~^https?://~~; s~/.*$~~; s/:.*$//')"
+          if [ -z "$HOST_CLEAN" ]; then
+            echo "PGHOST vacío tras sanitizar"; exit 1
           fi
-          echo "Usando IPv4: $IPV4"
+          echo "Host limpio: $HOST_CLEAN"
 
-          # 2) Armar conexión en forma de URL con SSL obligatorio
-          CONN="postgresql://${PGUSER}:${PGPASSWORD}@${IPV4}:${PGPORT}/${PGDATABASE}?sslmode=require"
+          # 1) Resolver IPv4 con Cloudflare, luego DNS por defecto
+          IPV4="$(dig +short A "$HOST_CLEAN" @1.1.1.1 | head -n1)"
+          if [ -z "$IPV4" ]; then
+            IPV4="$(dig +short A "$HOST_CLEAN" | head -n1 || true)"
+          fi
+          # 2) Último intento con getent
+          if [ -z "$IPV4" ]; then
+            IPV4="$(getent hosts "$HOST_CLEAN" | awk '{print $1}' | head -n1 || true)"
+          fi
 
-          # 3) Hacer el dump en formato personalizado (-Fc), sin owner
+          if [ -n "$IPV4" ]; then
+            echo "IPv4 resuelta: $IPV4"
+            HOST_FOR_CONN="$IPV4"
+          else
+            echo "No pude resolver IPv4. Usaré el hostname directo con IPv4 forzada en pg_dump."
+            HOST_FOR_CONN="$HOST_CLEAN"
+          fi
+
+          # 3) Dump en formato personalizado, SSL requerido
           TS=$(date -u +'%Y-%m-%dT%H-%M-%SZ')
           FILE="db_${TS}.dump"
-          # -w = no preguntar password (ya va en la URL)
-          # Nota: algunas versiones de pg_dump soportan "-4" (forzar IPv4),
-          # pero con host por IP ya forzamos IPv4.
-          pg_dump -Fc -w -d "$CONN" --no-owner -f "$FILE"
+
+          # Forzar IPv4 (-4). Si usamos IP ya es IPv4; si usamos hostname,
+          # -4 obliga conexión IPv4. SSL obligatorio.
+          PGSSLMODE=require pg_dump -Fc -w -h "$HOST_FOR_CONN" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -4 --no-owner -f "$FILE"
 
           echo "FILE=$FILE" >> $GITHUB_ENV
 
