@@ -14,7 +14,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client dnsutils libc-bin jq
 
-      - name: Resolve IPv4 and create dump (SSL required)
+      - name: Resolve address and create dump (IPv4 if available, else hostname/IPv6)
         env:
           PGHOST: ${{ secrets.PGHOST }}         # ej: db.xxxxx.supabase.co  (SIN https, SIN puerto)
           PGPORT: ${{ secrets.PGPORT }}         # 5432
@@ -24,37 +24,37 @@ jobs:
         run: |
           set -e
 
-          # 0) Limpiar host por si viene con esquema/puerto
+          # Sanitizar host
           HOST_CLEAN="$(printf '%s' "$PGHOST" | sed -E 's~^https?://~~; s~/.*$~~; s/:.*$//')"
           if [ -z "$HOST_CLEAN" ]; then
             echo "PGHOST vacío tras sanitizar"; exit 1
           fi
           echo "Host limpio: $HOST_CLEAN"
 
-          # 1) Resolver IPv4 de forma fiable
-          IPV4="$(getent ahostsv4 "$HOST_CLEAN" | awk '{print $1; exit}')"
+          # Intentar IPv4; si no hay, seguimos con hostname (permitirá IPv6)
+          IPV4="$(getent ahostsv4 "$HOST_CLEAN" | awk '{print $1; exit}' || true)"
           if [ -z "$IPV4" ]; then
-            IPV4="$(dig +short A "$HOST_CLEAN" @1.1.1.1 | head -n1)"
+            IPV4="$(dig +short A "$HOST_CLEAN" @1.1.1.1 | head -n1 || true)"
           fi
-          if [ -z "$IPV4" ]; then
-            echo "No pude resolver IPv4 para $HOST_CLEAN"
-            exit 1
-          fi
-          echo "IPv4 resuelta: $IPV4"
 
-          # 2) Variables de conexión libpq
-          export PGHOST="$HOST_CLEAN"      # nombre original (para TLS SNI)
-          export PGHOSTADDR="$IPV4"        # fuerza IPv4 real
+          if [ -n "$IPV4" ]; then
+            echo "IPv4 resuelta: $IPV4"
+            export PGHOSTADDR="$IPV4"   # fuerza IPv4 si existe
+          else
+            echo "No hay IPv4. Usaré hostname (probable IPv6)."
+            # sin PGHOSTADDR -> libpq resolverá AAAA y conectará por IPv6
+          fi
+
+          export PGHOST="$HOST_CLEAN"
           export PGPORT="$PGPORT"
           export PGUSER="$PGUSER"
           export PGPASSWORD="$PGPASSWORD"
           export PGSSLMODE="require"
 
-          # 3) Dump en formato personalizado
           TS=$(date -u +'%Y-%m-%dT%H-%M-%SZ')
           FILE="db_${TS}.dump"
 
-          # Nota: NO usamos -4 (pg_dump no lo soporta). La IPv4 se fuerza con PGHOSTADDR.
+          # Dump en formato personalizado; sin -4
           pg_dump -Fc -w --no-owner -f "$FILE" "$PGDATABASE"
 
           echo "FILE=$FILE" >> $GITHUB_ENV
