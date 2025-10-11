@@ -1,1 +1,28 @@
 
+name: Nightly HTTP backup
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 08:00 UTC ≈ 01:00 Mazatlán
+  workflow_dispatch:
+
+jobs:
+  call-backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit /api/backup on Vercel
+        env:
+          BACKUP_URL: ${{ secrets.BACKUP_URL }}   # ej: https://bit-tuapp.vercel.app/api/backup
+          BACKUP_TOKEN: ${{ secrets.BACKUP_TOKEN }}
+        run: |
+          set -e
+          if [ -z "$BACKUP_URL" ] || [ -z "$BACKUP_TOKEN" ]; then
+            echo "Faltan secrets BACKUP_URL o BACKUP_TOKEN"; exit 1
+          fi
+          echo "Llamando $BACKUP_URL ..."
+          curl -sS -X GET "$BACKUP_URL" -H "x-backup-token: $BACKUP_TOKEN" | tee resp.json
+          cat resp.json | jq .
+          ok=$(jq -r '.ok' resp.json)
+          if [ "$ok" != "true" ]; then
+            echo "Backup falló"; exit 1
+          fi
