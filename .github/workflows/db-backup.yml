@@ -3,27 +3,46 @@ name: Nightly DB dump to Supabase Storage
 on:
   schedule:
     - cron: '0 8 * * *'   # 08:00 UTC ≈ 01:00 Mazatlán
-  workflow_dispatch:      # Permite ejecutarlo a mano también
+  workflow_dispatch:
 
 jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Install pg_dump
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client jq
+      - name: Install tools (pg_dump + dig + curl)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client dnsutils jq
 
-      - name: Create dump
+      - name: Resolve IPv4 and create dump (force IPv4 + SSL)
         env:
-          PGHOST: ${{ secrets.PGHOST }}
-          PGPORT: ${{ secrets.PGPORT }}
-          PGDATABASE: ${{ secrets.PGDATABASE }}
-          PGUSER: ${{ secrets.PGUSER }}
-          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGHOST: ${{ secrets.PGHOST }}         # p.ej. db.xxxxx.supabase.co
+          PGPORT: ${{ secrets.PGPORT }}         # 5432 (NO el pool 6543)
+          PGDATABASE: ${{ secrets.PGDATABASE }} # normalmente "postgres"
+          PGUSER: ${{ secrets.PGUSER }}         # "postgres"
+          PGPASSWORD: ${{ secrets.PGPASSWORD }} # el password que reseteaste
         run: |
           set -e
+
+          # 1) Obtener la IPv4 del host (evita IPv6)
+          IPV4=$(dig +short A "$PGHOST" | head -n1)
+          if [ -z "$IPV4" ]; then
+            echo "No pude resolver IPv4 para $PGHOST"
+            exit 1
+          fi
+          echo "Usando IPv4: $IPV4"
+
+          # 2) Armar conexión en forma de URL con SSL obligatorio
+          CONN="postgresql://${PGUSER}:${PGPASSWORD}@${IPV4}:${PGPORT}/${PGDATABASE}?sslmode=require"
+
+          # 3) Hacer el dump en formato personalizado (-Fc), sin owner
           TS=$(date -u +'%Y-%m-%dT%H-%M-%SZ')
           FILE="db_${TS}.dump"
-          pg_dump -Fc -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f "$FILE" --no-owner
+          # -w = no preguntar password (ya va en la URL)
+          # Nota: algunas versiones de pg_dump soportan "-4" (forzar IPv4),
+          # pero con host por IP ya forzamos IPv4.
+          pg_dump -Fc -w -d "$CONN" --no-owner -f "$FILE"
+
           echo "FILE=$FILE" >> $GITHUB_ENV
 
       - name: Upload to Supabase Storage (db_dumps)
