@@ -1,15 +1,17 @@
+// app/page.tsx
+export const dynamic = 'force-dynamic'
 export default function Home() {
   return (
-    <main className="p-4">
-      <h1 className="text-xl font-semibold">BitLog</h1>
-      <ul className="mt-3 space-y-2">
-        <li><a className="underline" href="/trades">Trades</a></li>
-        <li><a className="underline" href="/trades/new">Nuevo</a></li>
-        <li><a className="underline" href="/import">Importar CSV</a></li>
-        <li><a className="underline" href="/backup">Backups</a></li>
-        <li><a className="underline" href="/login">Login</a></li>
+    <main style={{ padding: 20 }}>
+      <h1>BitLog</h1>
+      <p>Deployment OK ✅</p>
+      <ul>
+        <li><a href="/trades">Trades</a></li>
+        <li><a href="/trades/new">Nuevo Trade</a></li>
+        <li><a href="/import">Importar CSV</a></li>
+        <li><a href="/backup">Backup API</a></li>
+        <li><a href="/health">Health</a></li>
       </ul>
     </main>
   )
 }
-
