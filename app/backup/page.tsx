@@ -1,4 +1,7 @@
 'use client'
+export const dynamic = 'force-dynamic';
+
+import { supabase } from '@/lib/supabase-browser';
 import { useState } from 'react'
 
 type Res = { ok:boolean; snapshot?:string; signed?:any; error?:string }

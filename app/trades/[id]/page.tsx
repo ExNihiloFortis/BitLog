@@ -1,8 +1,10 @@
 'use client'
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase-browser';
 import { DateTime } from 'luxon'
 import { MAZ_TZ } from '@/lib/time'
 

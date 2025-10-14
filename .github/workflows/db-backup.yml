@@ -3,12 +3,17 @@ name: Nightly DB dump to Supabase Storage
 on:
   schedule:
     - cron: '0 8 * * *'   # 08:00 UTC ≈ 01:00 Mazatlán
+<<<<<<< HEAD
   workflow_dispatch:
+=======
+  workflow_dispatch:      # para poder lanzarlo a mano también
+>>>>>>> fix: ensure / and /health routes + project domain mapping
 
 jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
+<<<<<<< HEAD
       - name: Install tools (pg_dump + dig + getent + curl)
         run: |
           sudo apt-get update
@@ -57,6 +62,23 @@ jobs:
           # Dump en formato personalizado; sin -4
           pg_dump -Fc -w --no-owner -f "$FILE" "$PGDATABASE"
 
+=======
+      - name: Install pg_dump
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client jq
+
+      - name: Create dump
+        env:
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGDATABASE: ${{ secrets.PGDATABASE }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+        run: |
+          set -e
+          TS=$(date -u +'%Y-%m-%dT%H-%M-%SZ')
+          FILE="db_${TS}.dump"
+          pg_dump -Fc -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f "$FILE" --no-owner
+>>>>>>> fix: ensure / and /health routes + project domain mapping
           echo "FILE=$FILE" >> $GITHUB_ENV
 
       - name: Upload to Supabase Storage (db_dumps)
@@ -66,10 +88,19 @@ jobs:
         run: |
           set -e
           BUCKET=db_dumps
+<<<<<<< HEAD
+=======
+          # carpeta por fecha + run id, así no pisa archivos
+>>>>>>> fix: ensure / and /health routes + project domain mapping
           FOLDER=$(date -u +'%Y/%m/%d')
           PATH_OBJ="$FOLDER/${{ env.FILE }}"
           curl -sS -X POST "$SUPABASE_URL/storage/v1/object/$BUCKET/$PATH_OBJ" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             -H "Content-Type: application/octet-stream" \
             --data-binary "@${{ env.FILE }}"
+<<<<<<< HEAD
           echo "✅ Subido como: $PATH_OBJ"
+=======
+          echo "Subido como: $PATH_OBJ"
+
+>>>>>>> fix: ensure / and /health routes + project domain mapping

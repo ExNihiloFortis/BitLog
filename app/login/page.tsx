@@ -1,5 +1,7 @@
 'use client'
-import { supabase } from '@/lib/supabase'
+export const dynamic = 'force-dynamic';
+
+import { supabase } from '@/lib/supabase-browser';
 import { useState } from 'react'
 
 export default function LoginPage() {
