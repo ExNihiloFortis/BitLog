@@ -1,6 +1,8 @@
 'use client'
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase-browser';
 import { toUTC, sessionFromMazatlanHour } from '@/lib/time'
 
 type FileItem = File & { preview?: string }

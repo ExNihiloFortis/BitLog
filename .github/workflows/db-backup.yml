@@ -1,0 +1,44 @@
+name: Nightly DB dump to Supabase Storage
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 08:00 UTC ≈ 01:00 Mazatlán
+  workflow_dispatch:      # para poder lanzarlo a mano también
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install pg_dump
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client jq
+
+      - name: Create dump
+        env:
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGDATABASE: ${{ secrets.PGDATABASE }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+        run: |
+          set -e
+          TS=$(date -u +'%Y-%m-%dT%H-%M-%SZ')
+          FILE="db_${TS}.dump"
+          pg_dump -Fc -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f "$FILE" --no-owner
+          echo "FILE=$FILE" >> $GITHUB_ENV
+
+      - name: Upload to Supabase Storage (db_dumps)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -e
+          BUCKET=db_dumps
+          # carpeta por fecha + run id, así no pisa archivos
+          FOLDER=$(date -u +'%Y/%m/%d')
+          PATH_OBJ="$FOLDER/${{ env.FILE }}"
+          curl -sS -X POST "$SUPABASE_URL/storage/v1/object/$BUCKET/$PATH_OBJ" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary "@${{ env.FILE }}"
+          echo "Subido como: $PATH_OBJ"
+

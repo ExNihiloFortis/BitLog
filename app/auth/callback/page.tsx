@@ -1,21 +1,24 @@
-'use client'
-import { supabase } from '@/lib/supabase'
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+'use client';
+export const dynamic = 'force-dynamic';
 
-export default function Callback() {
-  const router = useRouter()
+
+import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { supabase } from '@/lib/supabase-browser';
+
+export default function AuthCallback() {
+  const router = useRouter();
+  const params = useSearchParams();
+
   useEffect(() => {
     (async () => {
-      // Si ya hay sesión, redirige
-      const s = await supabase.auth.getSession()
-      if (s.data.session) { router.replace('/'); return }
-      // Intercambia el código del magic link por sesión
-      const { error } = await supabase.auth.exchangeCodeForSession(window.location.href)
-      if (error) alert(error.message)
-      router.replace('/')
-    })()
-  }, [router])
-  return <p>Autenticando…</p>
+      await supabase.auth.getSession();
+      const err = params.get('error_description') || params.get('error');
+      if (err) alert('Error de autenticación: ' + err);
+      router.replace('/trades');
+    })();
+  }, [params, router]);
+
+  return <p className="p-4 text-sm">Procesando inicio de sesión…</p>;
 }
 
