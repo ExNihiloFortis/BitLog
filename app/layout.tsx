@@ -3,6 +3,8 @@ export const revalidate = 0
 
 import './globals.css';
 import Link from 'next/link';
+import NavStatsLink from '@/app/components/NavStatsLink'
+
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,6 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <nav className="px-4 py-3 border-b border-zinc-800 flex gap-4">
           <Link href="/">Dashboard</Link>
           <Link href="/trades">Trades</Link>
+          <NavStatsLink />
           <Link href="/trades/new">Nuevo</Link>
           <div className="ml-auto">
             <Link href="/login">Login</Link>
