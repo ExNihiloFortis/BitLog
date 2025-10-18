@@ -41,3 +41,5 @@ yarn-error.log*
 next-env.d.ts
 bit-log-GITHUB-Token
 .env*
+.github/workflows/db-backup.LOCAL.bak
+replacements.txt
