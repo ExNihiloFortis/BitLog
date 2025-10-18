@@ -15,6 +15,8 @@ type Trade = {
   pips:number|null; pnl:number|null; r_target:number|null; trend:string|null; pattern:string|null;
   session:string|null; emotion:string|null; duration_min:number|null; ea:string|null; tag:string|null; notes:string|null;
   broker:string|null; broker_trade_id:string|null; platform:string|null; close_reason:string|null;
+  has_ea:boolean|null; ea_timeframe:string|null; ea_side:'BUY'|'SELL'|null; ea_quality:number|null;
+  ea_sl_suggested:number|null; ea_tp_suggested:number|null; ea_note:string|null;
 }
 type Pic = { path:string; url:string; created_at?:string; title?:string|null; sort_index?:number|null }
 
@@ -249,6 +251,33 @@ export default function TradeDetail() {
         <Item label="Plataforma" value={trade.platform} />
       </div>
 
+      {/* ======= NUEVO: Datos del EA (opcional) ======= */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium">Datos del EA (opcional)</div>
+          {trade.ea ? (
+            <Link href="/ea/presets" className="text-xs underline">Gestionar lista de EAs</Link>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Item label="EA" value={trade.ea} />
+          <Item label="Timeframe" value={trade.ea_timeframe} />
+          <Item label="Lado (EA)" value={trade.ea_side} />
+          <Item label="Calificación" value={trade.ea_quality} />
+          <Item label="SL sugerido" value={trade.ea_sl_suggested} />
+          <Item label="TP sugerido" value={trade.ea_tp_suggested} />
+        </div>
+
+        {trade.ea_note ? (
+          <div className="mt-3">
+            <div className="text-xs text-zinc-400 mb-1">Nota del EA</div>
+            <div className="whitespace-pre-wrap">{trade.ea_note}</div>
+          </div>
+        ) : null}
+      </div>
+      {/* ======= FIN bloque EA ======= */}
+
       <div className="bg-zinc-900 border border-zinc-800 rounded p-3">
         <div className="text-xs text-zinc-400 mb-1">Notas</div>
         <div className="whitespace-pre-wrap">{trade.notes ?? ''}</div>
@@ -282,6 +311,7 @@ export default function TradeDetail() {
                 src={pics[idx].url}
                 className="w-full rounded border border-zinc-800 cursor-zoom-in"
                 onClick={() => setShowModal(true)}
+                alt="captura"
               />
               <div className="absolute inset-y-0 left-0 flex items-center">
                 <button onClick={()=>setIdx(i=>Math.max(0,i-1))} disabled={idx===0}
@@ -303,8 +333,7 @@ export default function TradeDetail() {
                      onDragOver={onDragOverThumb}
                      onDrop={()=>onDropThumb(i)}
                 >
-                  <img src={p.url} className="w-full cursor-pointer"
-                       onClick={()=>{ setIdx(i); setShowModal(true) }} />
+                  <img src={p.url} className="w-full cursor-pointer" onClick={()=>{ setIdx(i); setShowModal(true) }} alt="thumb" />
                   <div className="p-2 border-t border-zinc-800">
                     <input
                       defaultValue={p.title || ''}
@@ -338,7 +367,7 @@ export default function TradeDetail() {
           onClick={() => setShowModal(false)}
         >
           <div className="relative max-w-6xl w-full" onClick={(e)=>e.stopPropagation()}>
-            <img src={pics[idx].url} className="max-h-[85vh] w-auto mx-auto rounded border border-zinc-700" />
+            <img src={pics[idx].url} className="max-h-[85vh] w-auto mx-auto rounded border border-zinc-700" alt="zoom" />
             <button
               onClick={()=>setIdx(i=>Math.max(0,i-1))}
               disabled={idx===0}
